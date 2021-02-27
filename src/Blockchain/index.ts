@@ -1,21 +1,17 @@
 import Block from '../Block'
 import Transaction from '../Transaction'
+import Wallet from '../Wallet'
 
 export interface IBlockchain {
   chain: Block[]
   pendingTransactions: Transaction[]
+  wallets: Wallet[]
+
   difficulty: number
   reward: number
   publicKey: string
 
-  createNewBlock(
-    index: number,
-    nonce: number,
-    previousHash: string,
-    hash: string,
-    totalAmount: number,
-    transactions: Transaction[]
-  ): Block
+  createNewBlock(index: number, previousHash: string, totalAmount: number, transactions: Transaction[]): Block
   signTransaction(transaction: Transaction): Transaction
   validateTransaction(transaction: Transaction): boolean
   addNewBlock(block: Block): void

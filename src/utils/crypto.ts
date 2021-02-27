@@ -1,5 +1,8 @@
 import crypto from 'crypto'
+import { ec } from 'elliptic'
 import { v4 as uuidv4 } from 'uuid'
+
+const EC = new ec('secp256k1')
 
 export const generateNewHash = (string: string): string => {
   return crypto.createHash('sha256').update(JSON.stringify(string)).digest('hex')
@@ -10,30 +13,25 @@ export const generateNewUUID = (): string => {
 }
 
 export const generateKeyPair = () => {
-  const { privateKey, publicKey }: crypto.KeyPairSyncResult<string, string> = crypto.generateKeyPairSync('rsa', {
-    modulusLength: 4096,
-    publicKeyEncoding: {
-      type: 'spki',
-      format: 'pem',
-    },
-    privateKeyEncoding: {
-      type: 'pkcs8',
-      format: 'pem',
-      cipher: 'aes-256-cbc',
-      passphrase: 'tcoin',
-    },
-  })
+  const key = EC.genKeyPair()
+
+  const publicKey = key.getPublic('hex')
+  const privateKey = key.getPrivate('hex')
 
   return { publicKey, privateKey }
 }
 
-export function signWithPrivateKey(privateKey: string, buffer: Buffer): Buffer {
-  return crypto.sign('sha256', buffer, {
-    key: privateKey,
-    passphrase: 'tcoin',
-  })
+export const signWithPrivateKey = (sender: string, dataHash: string): string => {
+  const privateKey = EC.keyFromPrivate(sender, 'hex')
+  const signature = privateKey.sign(dataHash, 'base64')
+  return signature.toDER('hex')
 }
 
-export function verifySignature(data: Buffer, publicKey: string, signature: Buffer): boolean {
-  return crypto.verify('sha256', data, publicKey, signature)
+export const verifySignature = (dataHash: string, sender: string, signature: string): boolean => {
+  if (sender !== null) return true
+
+  if (!signature || signature.length === 0) return false
+
+  const publicKey = EC.keyFromPublic(sender, 'hex')
+  return publicKey.verify(dataHash, signature)
 }

@@ -1,14 +1,25 @@
 import dayjs from 'dayjs'
 import { ITransaction } from '.'
+import { generateNewUUID } from '../utils/crypto'
 
 class Transaction implements ITransaction {
-  constructor(
-    public id: string = id,
-    public amount: number = amount,
-    public sender: string = sender,
-    public recipient: string = recipient,
-    public timestamp: number = dayjs().valueOf()
-  ) {}
+  id: string
+
+  amount: number
+
+  sender: string
+
+  recipient: string
+
+  timestamp: number
+
+  constructor(amount: number, sender: string, recipient: string) {
+    this.id = generateNewUUID()
+    this.amount = amount
+    this.sender = sender
+    this.recipient = recipient
+    this.timestamp = dayjs().valueOf()
+  }
 }
 
 export default Transaction

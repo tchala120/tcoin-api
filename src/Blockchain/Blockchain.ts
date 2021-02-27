@@ -2,13 +2,16 @@ import stringify from 'json-stable-stringify'
 import { IBlockchain } from '.'
 import Block from '../Block'
 import Transaction from '../Transaction'
-import { generateKeyPair, generateNewHash, generateNewUUID, signWithPrivateKey, verifySignature } from '../utils/crypto'
-import { resetData, retreiveData, retreiveTransactionsData, saveData, saveTransactionData } from '../utils/db'
+import { generateKeyPair, generateNewHash, signWithPrivateKey, verifySignature } from '../utils/crypto'
+import { retreiveData, saveData } from '../utils/db'
+import Wallet from '../Wallet'
 
 class Blockchain implements IBlockchain {
   chain: Block[]
 
   pendingTransactions: Transaction[]
+
+  wallets: Wallet[]
 
   difficulty: number = 5
 
@@ -18,128 +21,120 @@ class Blockchain implements IBlockchain {
 
   private privateKey: string
 
-  private currentSignature: Buffer
+  private signature: string
 
   constructor() {
-    this.chain = retreiveData().blockchain || []
-    this.difficulty = retreiveData().difficulty || 4
-    this.reward = retreiveData().reward || 10
-    this.pendingTransactions = retreiveTransactionsData() || []
-
     this.publicKey = generateKeyPair().publicKey
+
     this.privateKey = generateKeyPair().privateKey
 
-    this.currentSignature = Buffer.from('')
+    this.chain = retreiveData().blockchain || []
+
+    this.pendingTransactions = retreiveData().transactions || []
+
+    this.difficulty = retreiveData().difficulty || 5
+
+    this.reward = retreiveData().reward || 10
+
+    this.wallets = retreiveData().wallets || [new Wallet(this.publicKey, 0)]
+
+    this.signature = ''
 
     if (this.chain.length === 0) this.addNewBlock(this.createGenesisBlock())
   }
 
-  public createNewBlock(
-    index: number,
-    nonce: number,
-    previousHash: string,
-    hash: string,
-    totalAmount: number,
-    transactions: Transaction[]
-  ): Block {
-    const newBlock = new Block(index, nonce, previousHash, hash, totalAmount, transactions)
+  public createNewBlock(index: number, previousHash: string, totalAmount: number, transactions: Transaction[]): Block {
+    const newBlock = new Block(index, previousHash, totalAmount, transactions, this.difficulty)
 
     return newBlock
   }
 
-  public transactionState(amount: number, sender: string, recipient: string): Transaction[] {
-    const coinbaseTransaction: Transaction = this.signTransaction(this.createNewTransaction(amount, sender, recipient))
+  public addNewTransaction(amount: number, sender: string, recipient: string): Transaction {
+    const newTransaction = this.createNewTransaction(amount, sender, recipient)
 
-    this.pendingTransactions = [coinbaseTransaction, ...retreiveTransactionsData()]
+    this.pendingTransactions = [...retreiveData().transactions]
 
-    saveTransactionData({ transactions: this.pendingTransactions })
+    if (this.validateTransaction(newTransaction)) {
+      this.pendingTransactions.push(newTransaction)
+      saveData({
+        blockchain: this.chain,
+        transactions: this.pendingTransactions,
+        wallets: this.wallets,
+        difficulty: this.difficulty,
+        reward: this.reward,
+      })
+    }
 
-    return this.pendingTransactions
+    return newTransaction
   }
 
   public createNewTransaction(amount: number, sender: string, recipient: string): Transaction {
-    const newTransaction = new Transaction(generateNewUUID(), amount, sender, recipient)
+    const newTransaction = new Transaction(amount, sender, recipient)
 
-    return {
-      ...newTransaction,
-    }
+    return this.signTransaction(newTransaction)
   }
 
   public signTransaction(transaction: Transaction): Transaction {
-    const transactionHash: Buffer = Buffer.from(generateNewHash(stringify(transaction)))
-    const signature: Buffer = signWithPrivateKey(this.privateKey, transactionHash)
+    const transactionHash: string = generateNewHash(stringify(transaction))
+    const signature: string = signWithPrivateKey(this.privateKey, transactionHash)
 
-    this.currentSignature = signature
+    this.signature = signature
 
     return transaction
   }
 
   public validateTransaction(transaction: Transaction): boolean {
-    const transactionHash: Buffer = Buffer.from(generateNewHash(stringify(transaction)))
+    const transactionHash: string = generateNewHash(stringify(transaction))
 
-    const isTransactionVerify = verifySignature(transactionHash, transaction.sender, this.currentSignature)
+    const isTransactionVerify = verifySignature(transactionHash, this.publicKey, this.signature)
 
-    this.currentSignature = Buffer.from('')
+    this.signature = ''
 
     return isTransactionVerify
   }
 
   public addNewBlock(block: Block): void {
     this.chain.push(block)
+
+    this.wallets = this.calWalletBalance()
+
+    this.pendingTransactions = [this.createNewTransaction(this.reward, 'System', this.publicKey)]
+
+    saveData({
+      blockchain: this.chain,
+      transactions: this.pendingTransactions,
+      wallets: this.wallets,
+      difficulty: this.difficulty,
+      reward: this.reward,
+    })
   }
 
   public getLastBlock(): Block {
     return this.chain.slice(-1)[0]
   }
 
-  public mine(): Block | boolean {
-    if (this.isChainValid()) {
-      const blockchain = retreiveData().blockchain || []
+  public mine(): Block {
+    if (!this.isChainValid()) throw new Error('This chain is currently not valid.')
+    else {
+      const lastBlock = this.getLastBlock()
 
-      const coinbaseTransaction: Transaction = this.signTransaction(
-        this.createNewTransaction(this.reward, this.publicKey, this.publicKey)
-      )
-
-      const transactions: Transaction[] = [coinbaseTransaction, ...retreiveTransactionsData()]
-      const lastBlock: Block = this.getLastBlock()
-      const nonce = this.proofOfWork(lastBlock.hash, transactions)
-      const blockHash = generateNewHash(
-        stringify({
-          nonce,
-          previousHash: lastBlock.hash,
-          transactions,
-        })
-      )
+      const transactions: Transaction[] = [...retreiveData().transactions]
 
       const totalAmount = this.calTotalAmount(transactions)
 
-      const minedBlock: Block = this.createNewBlock(
+      const minedBlock = new Block(
         this.getLastIndexOfChain(),
-        nonce,
         lastBlock.hash,
-        blockHash,
         totalAmount,
-        transactions
+        transactions,
+        this.difficulty
       )
+
+      minedBlock.proofOfWork()
 
       this.addNewBlock(minedBlock)
 
-      blockchain.push(minedBlock)
-
-      saveData({ blockchain, difficulty: this.difficulty, reward: this.reward })
-
-      this.pendingTransactions = []
-
-      saveTransactionData({ transactions: [] })
-
       return minedBlock
-    } else {
-      console.log('This chain is currenly not valid, reset now...')
-      resetData()
-
-      this.chain = []
-
-      return false
     }
   }
 
@@ -151,7 +146,17 @@ class Blockchain implements IBlockchain {
         const currentBlock = this.chain[index]
         const previousBlock = this.chain[index - 1]
 
-        if (currentBlock.previousHash !== previousBlock.hash) {
+        if (
+          currentBlock.hash !==
+            generateNewHash(
+              stringify({
+                nonce: currentBlock.nonce,
+                previousHash: currentBlock.previousHash,
+                transactions: currentBlock.transactions,
+              })
+            ) ||
+          currentBlock.previousHash !== previousBlock.hash
+        ) {
           isValid = false
           break
         }
@@ -165,24 +170,11 @@ class Blockchain implements IBlockchain {
   }
 
   private createGenesisBlock(): Block {
-    return new Block(this.getLastIndexOfChain(), 0, '', '', 0, [])
+    return new Block(this.getLastIndexOfChain(), '', 0, [], this.difficulty)
   }
 
   private getLastIndexOfChain(): number {
     return this.chain.length
-  }
-
-  private proofOfWork(previousHash: string, transactions: Transaction[]): number {
-    let nonce = 0
-
-    let currentHash = generateNewHash(stringify({ nonce, previousHash, transactions }))
-
-    while (!currentHash.startsWith('0'.repeat(this.difficulty))) {
-      nonce++
-      currentHash = generateNewHash(stringify({ nonce, previousHash, transactions }))
-    }
-
-    return nonce
   }
 
   private calTotalAmount = (transactions: Transaction[]) => {
@@ -193,6 +185,19 @@ class Blockchain implements IBlockchain {
     })
 
     return total
+  }
+
+  private calWalletBalance = (): Wallet[] => {
+    const wallets = this.wallets
+
+    wallets.forEach((wallet) => {
+      this.pendingTransactions.forEach((tx) => {
+        if (wallet.address === tx.sender) wallet.balance -= tx.amount
+        if (wallet.address === tx.recipient) wallet.balance += tx.amount
+      })
+    })
+
+    return wallets
   }
 }
 

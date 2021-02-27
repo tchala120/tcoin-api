@@ -3,13 +3,14 @@ import stringify from 'json-stable-stringify'
 import path from 'path'
 import Block from '../Block'
 import Transaction from '../Transaction'
+import Wallet from '../Wallet'
 
-const dbPath = path.join(__dirname, '../../', 'database/blockchain.json')
-
-const transactionPath = path.join(__dirname, '../../', 'database/transactions.json')
+const dbPath = path.join(__dirname, '../../', 'database.json')
 
 export interface Data {
   blockchain: Block[]
+  transactions: Transaction[]
+  wallets: Wallet[]
   reward: number
   difficulty: number
 }
@@ -19,37 +20,24 @@ export interface ITransaction {
 }
 
 export const retreiveData = (): Data => {
-  const { blockchain, reward, difficulty } = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+  const { blockchain, reward, difficulty, transactions, wallets }: Data = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
 
-  return { blockchain, reward, difficulty }
+  return { blockchain, reward, difficulty, transactions, wallets }
 }
 
-export const retreiveTransactionsData = (): Transaction[] => {
-  const { transactions } = JSON.parse(fs.readFileSync(transactionPath, 'utf-8'))
-
-  return transactions
-}
-
-export const saveData = ({ blockchain, difficulty, reward }: Data) => {
+export const saveData = ({ blockchain, transactions, wallets, difficulty, reward }: Data) => {
   fs.writeFileSync(
     dbPath,
     stringify({
       blockchain,
+      transactions,
+      wallets,
       difficulty,
       reward,
     })
   )
 
   console.log('Save data success.')
-}
-
-export const saveTransactionData = ({ transactions }: ITransaction) => {
-  fs.writeFileSync(
-    transactionPath,
-    stringify({
-      transactions,
-    })
-  )
 }
 
 export const resetData = () => {
@@ -66,7 +54,5 @@ export const resetData = () => {
 export default {
   retreiveData,
   saveData,
-  retreiveTransactionsData,
-  saveTransactionData,
   resetData,
 }

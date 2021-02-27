@@ -8,7 +8,9 @@ export interface IBlock {
   totalAmount: number
   transactions: Transaction[]
   timestamp: number
-  key: string
+  difficulty: number
+
+  proofOfWork(previousHash: string, transactions: Transaction[]): void
 }
 
 export { default } from './Block'
