@@ -27,8 +27,8 @@ npm install
   "blockchain": [],
   "transactions": [],
   "wallets": [],
-  "difficulty": 5, // number default is 5
-  "reward": 10 // number default is 10
+  "difficulty": 5,
+  "reward": 10
 }
 ```
 
