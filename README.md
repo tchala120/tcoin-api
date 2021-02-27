@@ -19,8 +19,18 @@ npm install
 
 **Create mock Database**
 
-- Create directory with name `database`
-- Create 2 file inside `database` directory with names `blockchain.json` and `transactions.json` with empty object `{}`
+- Create file with name `database.json`
+
+```json
+// database.json
+{
+  "blockchain": [],
+  "transactions": [],
+  "wallets": [],
+  "difficulty": 5, // number default is 5
+  "reward": 10 // number default is 10
+}
+```
 
 **Start Project**
 
