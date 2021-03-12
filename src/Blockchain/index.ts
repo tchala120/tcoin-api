@@ -1,21 +1,39 @@
 import Block from '../Block'
 import Transaction from '../Transaction'
-import Wallet from '../Wallet'
+import { IWallet } from '../Wallet'
+
+export interface BlockParams {
+  index: number
+  previousHash: string
+  totalAmount: number
+  transactions: Transaction[]
+}
+
+export interface TransactionParams {
+  amount: number
+  sender: string
+  recipient: string
+}
+
+export interface Wallets {
+  [key: string]: IWallet
+}
 
 export interface IBlockchain {
   chain: Block[]
   pendingTransactions: Transaction[]
-  wallets: Wallet[]
 
   difficulty: number
   reward: number
-  publicKey: string
+  wallets: Wallets
 
-  createNewBlock(index: number, previousHash: string, totalAmount: number, transactions: Transaction[]): Block
+  createNewBlock(params: BlockParams): Block
   signTransaction(transaction: Transaction): Transaction
   validateTransaction(transaction: Transaction): boolean
-  addNewBlock(block: Block): void
   getLastBlock(): Block
+
+  addNewTransaction(params: TransactionParams): Transaction
+  createNewTransaction(params: TransactionParams): Transaction
 
   mine(): Block | boolean
 

@@ -21,6 +21,11 @@ export const generateKeyPair = () => {
   return { publicKey, privateKey }
 }
 
+export const getPrivateKeyWithPublicKey = (publicKey: string): string => {
+  const privateKey = EC.keyFromPrivate(publicKey, 'hex')
+  return privateKey.getPrivate().toString()
+}
+
 export const signWithPrivateKey = (sender: string, dataHash: string): string => {
   const privateKey = EC.keyFromPrivate(sender, 'hex')
   const signature = privateKey.sign(dataHash, 'base64')

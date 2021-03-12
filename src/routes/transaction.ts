@@ -19,7 +19,7 @@ router.get('/', (_: Request, res: Response) => {
 router.post('/', (req: Request, res: Response) => {
   const { amount, sender, recipient }: Transaction = req.body
 
-  const transaction = tcoin.addNewTransaction(amount, sender, recipient)
+  const transaction = tcoin.addNewTransaction({ amount, sender, recipient })
 
   const pendingTransactions = tcoin.pendingTransactions
 

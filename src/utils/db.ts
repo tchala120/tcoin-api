@@ -3,14 +3,12 @@ import stringify from 'json-stable-stringify'
 import path from 'path'
 import Block from '../Block'
 import Transaction from '../Transaction'
-import Wallet from '../Wallet'
 
 const dbPath = path.join(__dirname, '../../', 'database.json')
 
 export interface Data {
   blockchain: Block[]
   transactions: Transaction[]
-  wallets: Wallet[]
   reward: number
   difficulty: number
 }
@@ -20,18 +18,17 @@ export interface ITransaction {
 }
 
 export const retreiveData = (): Data => {
-  const { blockchain, reward, difficulty, transactions, wallets }: Data = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
+  const { blockchain, reward, difficulty, transactions }: Data = JSON.parse(fs.readFileSync(dbPath, 'utf-8'))
 
-  return { blockchain, reward, difficulty, transactions, wallets }
+  return { blockchain, reward, difficulty, transactions }
 }
 
-export const saveData = ({ blockchain, transactions, wallets, difficulty, reward }: Data) => {
+export const saveData = ({ blockchain, transactions, difficulty, reward }: Data) => {
   fs.writeFileSync(
     dbPath,
     stringify({
       blockchain,
       transactions,
-      wallets,
       difficulty,
       reward,
     })
